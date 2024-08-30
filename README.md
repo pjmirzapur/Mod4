@@ -1,4 +1,5 @@
 # Mod4
+# Contract ID: 0xA9F18A5D2d51Cdd1391C3dDd69faaeaE5f585411
 # DegenGamingToken Smart Contract
 
 ## Overview

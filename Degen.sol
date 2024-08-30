@@ -1,165 +1,134 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.21;
+pragma solidity 0.8.21;
 
-contract DegenGamingToken {
-    string public name;
-    string public symbol;
-    uint8 public decimals;
-    uint256 public totalSupply;
-    address public owner;
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-    mapping(address => uint256) private balances;
-    mapping(address => mapping(address => uint256)) private allowances;
-    mapping(address => uint256) private rewards;
+contract degenStudio is ERC20, Ownable {
 
-    struct Item {
-        string name;
-        uint256 cost;
+    string tokenName = "Degen";
+    string tokenSymbol = "DGN";
+    mapping (address => uint[]) public ownedItems;
+    mapping (uint => uint[2]) public storeItemsManagement;
+    string public storeItemNames = "0. Prashant (500) 1. Sea_Monkey (100) 2. Chain_Smoker (200)";
+    struct requestStructure {
+        address user;
+        uint choice;
+        uint buyORsell;
+    }
+    requestStructure[] requests;
+
+    function decimals() public view virtual override returns (uint8) {
+        return 0;
     }
 
-    Item[] public items;
-    mapping(address => mapping(uint256 => uint256)) public playerItems; // player address => item ID => quantity
-
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-    event RewardClaimed(address indexed player, uint256 amount);
-    event ItemRedeemed(address indexed player, uint256 itemId, uint256 quantity);
-    event ShieldRewardClaimed(address indexed player, uint256 quantity);
-
-
-    constructor() {
-        name = "Degen Token";
-        symbol = "DGN";
-        decimals = 18;
-        totalSupply = 0;
-        owner = msg.sender;
-
-        // Adding sample items
-        items.push(Item("Sword", 100));
-        items.push(Item("Shield", 150));
+    constructor(uint _startingSupply) ERC20(tokenName, tokenSymbol) Ownable(msg.sender) {
+        _mint(msg.sender, _startingSupply);
+        storeItemsManagement[0] = [500, 5];
+        storeItemsManagement[1] = [100, 3];
+        storeItemsManagement[2] = [200, 2];
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only the contract owner can perform this action");
-        _;
+    function reward(address _player, uint _tokenAmount) public onlyOwner {
+        _transfer(msg.sender, _player, _tokenAmount);
     }
 
-    function mint(address account, uint256 amount) external onlyOwner {
-        require(account != address(0), "Invalid address");
-        require(amount > 0, "Invalid amount");
-
-        balances[account] += amount;
-        totalSupply += amount;
-
-        emit Transfer(address(0), account, amount);
+    function walletBalance(address _user) public view returns (uint) {
+        return balanceOf(_user);
     }
 
-    function transfer(address recipient, uint256 amount) external returns (bool) {
-        require(recipient != address(0), "Invalid address");
-        require(amount > 0, "Invalid amount");
-        require(amount <= balances[msg.sender], "Insufficient balance");
-
-        balances[msg.sender] -= amount;
-        balances[recipient] += amount;
-
-        emit Transfer(msg.sender, recipient, amount);
-        return true;
-    }
-
-    function approve(address spender, uint256 amount) external returns (bool) {
-        require(spender != address(0), "Invalid address");
-
-        allowances[msg.sender][spender] = amount;
-
-        emit Approval(msg.sender, spender, amount);
-        return true;
-    }
-
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
-        require(sender != address(0), "Invalid address");
-        require(recipient != address(0), "Invalid address");
-        require(amount > 0, "Invalid amount");
-        require(amount <= balances[sender], "Insufficient balance");
-        require(amount <= allowances[sender][msg.sender], "Insufficient allowance");
-
-        balances[sender] -= amount;
-        balances[recipient] += amount;
-        allowances[sender][msg.sender] -= amount;
-
-        emit Transfer(sender, recipient, amount);
-        return true;
-    }
-
-    function burn(uint256 amount) external {
-        require(amount > 0, "Invalid amount");
-        require(amount <= balances[msg.sender], "Insufficient balance");
-
-        balances[msg.sender] -= amount;
-        totalSupply -= amount;
-
-        emit Transfer(msg.sender, address(0), amount);
-    }
-
-    function balanceOf(address account) external view returns (uint256) {
-        return balances[account];
-    }
-
-    function claimReward() external returns (uint256) {
-    uint256 amount = rewards[msg.sender];
-    require(amount > 0, "No rewards to claim");
-
-    rewards[msg.sender] = 0;
-
-    // Give the player a shield (item ID 1)
-    uint256 shieldItemId = 1;
-    playerItems[msg.sender][shieldItemId] += 1; // Increase the quantity of shields
-
-    emit RewardClaimed(msg.sender, amount);
-    emit ShieldRewardClaimed(msg.sender, 1); // Log the shield reward
-
-    return amount;
-}
-
-
-    function InGamePurchase(uint256 amount) external {
-        require(amount > 0, "Invalid amount");
-        require(amount <= balances[msg.sender], "Insufficient balance");
-
-        balances[msg.sender] -= amount;
-        totalSupply -= amount;
-
-        emit Transfer(msg.sender, address(0), amount);
-    }
-
-    function redeemItem(uint256 itemId, uint256 quantity) external {
-        require(itemId < items.length, "Invalid item ID");
-        require(quantity > 0, "Invalid quantity");
-
-        uint256 totalCost = items[itemId].cost * quantity;
-        require(totalCost <= balances[msg.sender], "Insufficient balance");
-
-        balances[msg.sender] -= totalCost;
-        totalSupply -= totalCost;
-        
-        playerItems[msg.sender][itemId] += quantity;  // Update the player's item inventory
-
-        emit Transfer(msg.sender, address(0), totalCost);
-        emit ItemRedeemed(msg.sender, itemId, quantity);
-    }
-
-    function getPlayerItemQuantity(address player, uint256 itemId) external view returns (uint256) {
-        return playerItems[player][itemId];
-    }
-
-    function getPlayerItems(address player) external view returns (Item[] memory, uint256[] memory) {
-        uint256 itemCount = items.length;
-        uint256[] memory quantities = new uint256[](itemCount);
-
-        for (uint256 i = 0; i < itemCount; i++) {
-            quantities[i] = playerItems[player][i];
+    function buyItem(uint8 _choice) public returns (bool) {
+        if (storeItemsManagement[_choice][1] != 0) { 
+            if (walletBalance(msg.sender) >= storeItemsManagement[_choice][0]) {
+                ownedItems[msg.sender].push(_choice);
+                storeItemsManagement[_choice][1] -= 1;
+                _transfer(msg.sender, owner(), storeItemsManagement[_choice][0]);
+                return true;
+            }
+            else {
+                return false;
+            }
         }
-        
+        else {
+            return false;
+        }
+    }
 
-        return (items, quantities);
+    function makeSellRequest(uint _choice, uint _whatPrice) public returns (bool) {
+        bool check = false;
+        for (uint i = 0; i < ownedItems[msg.sender].length; i++)
+        {
+            if (ownedItems[msg.sender][i] == _choice) {
+                check = true;
+                break;
+            }
+        }
+        if (check == true) {
+            requests.push(requestStructure(msg.sender, _choice, _whatPrice, 0));
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    function fulfillRequest(uint _requestNum) public returns (bool) {
+        if (requests[_requestNum].buyORsell == 0) {
+            if (walletBalance(msg.sender) >= requests[_requestNum].price) {
+                _transfer(msg.sender, requests[_requestNum].user, requests[_requestNum].price);
+                ownedItems[msg.sender].push(requests[_requestNum].choice);
+                for (uint i = 0; i < ownedItems[requests[_requestNum].user].length; i++)
+                {
+                    if (ownedItems[requests[_requestNum].user][i] == requests[_requestNum].choice) {
+                        removeOwnership(requests[_requestNum].user, i);
+                        break;
+                    }
+                }
+                removeRequest(_requestNum);
+                return true;
+            }
+            return false;
+        }
+        else {
+            bool check = false;
+            uint i;
+            for (i = 0; i < ownedItems[msg.sender].length; i++)
+            {
+                if (ownedItems[msg.sender][i] == requests[_requestNum].choice) {
+                    check = true;
+                    break;
+                }
+            }
+            if (check = true) {
+                removeOwnership(msg.sender, i);
+                _transfer(requests[_requestNum].user, msg.sender, requests[_requestNum].price);
+                ownedItems[requests[_requestNum].user].push(requests[_requestNum].choice);
+                removeRequest(_requestNum);
+                return true;
+            } 
+            return false;
+        }
+    }
+
+    function listRequests() public view  returns (requestStructure[] memory) {
+        return requests;
+    }
+
+    function showPossessions(address user) public view returns (uint[] memory) {
+        return ownedItems[user];
+    }
+
+    function removeRequest(uint index) public {
+        for (uint i = index; i < requests.length - 1; i++) {
+            requests[i] = requests[i + 1];
+        }
+        requests.pop();
+    }
+
+    function removeOwnership(address user,uint index) public {
+        for (uint i = index; i < ownedItems[user].length - 1; i++) {
+            ownedItems[user][i] = ownedItems[user][i + 1];
+        }
+        ownedItems[user].pop();
     }
 }

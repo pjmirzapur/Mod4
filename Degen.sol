@@ -8,11 +8,13 @@ contract degenStudio is ERC20, Ownable {
 
     string tokenName = "Degen";
     string tokenSymbol = "DGN";
+    mapping(address => uint256) private balances;
     mapping (address => uint[]) public ownedItems;
     mapping (uint => uint[2]) public storeItemsManagement;
     string public storeItemNames = "0. Prashant (500) 1. Sea_Monkey (100) 2. Chain_Smoker (200)";
     struct requestStructure {
         address user;
+        uint price;
         uint choice;
         uint buyORsell;
     }
@@ -28,6 +30,23 @@ contract degenStudio is ERC20, Ownable {
         storeItemsManagement[1] = [100, 3];
         storeItemsManagement[2] = [200, 2];
     }
+
+    function mint(address account, uint256 amount) external onlyOwner {
+        require(account != address(0), "Invalid address");
+        require(amount > 0, "Invalid amount");
+
+        balances[account] += amount;
+        emit Transfer(address(0), account, amount);
+    }
+
+    function burn(uint256 amount) external {
+        require(amount > 0, "Invalid amount");
+        require(amount <= balances[msg.sender], "Insufficient balance");
+
+        balances[msg.sender] -= amount;
+        emit Transfer(msg.sender, address(0), amount);
+    }
+
 
     function reward(address _player, uint _tokenAmount) public onlyOwner {
         _transfer(msg.sender, _player, _tokenAmount);

@@ -1,5 +1,7 @@
 # Mod4
-# Contract ID: 0xA9F18A5D2d51Cdd1391C3dDd69faaeaE5f585411
+Sorry forgot to update Cntract address in the submission concole please find the contract address here 
+Contract ID: 00x71c7d7B550bb4D1b9D46cC4F10d7add577D8fC18
+
 # DegenGamingToken Smart Contract
 
 ## Overview
